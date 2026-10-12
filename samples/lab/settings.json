@@ -1,0 +1,15 @@
+{
+  "tcp": {
+    "overlap_policy": "first_seen",
+    "checksum_policy": "warn"
+  },
+  "ui": {
+    "hex_bytes_per_row": 16
+  },
+  "limits": {
+    "max_capture_bytes": 209715200,
+    "max_packets": 500000,
+    "warn_capture_bytes": 104857600,
+    "warn_packets": 250000
+  }
+}

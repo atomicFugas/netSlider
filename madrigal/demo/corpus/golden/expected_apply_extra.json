@@ -1,0 +1,31 @@
+{
+  "interpretation": "device_v1",
+  "pcap": "extra.pcap",
+  "messages_ok": 6,
+  "messages_error": 0,
+  "opcodes_present": [
+    1,
+    2,
+    3,
+    16,
+    17
+  ],
+  "streams": [
+    {
+      "session_id": "extra:10.0.0.1:9100-10.0.0.3:50200#1",
+      "direction": "a_to_b",
+      "messages_ok": 3,
+      "messages_error": 0,
+      "coverage_min": 0.5
+    },
+    {
+      "session_id": "extra:10.0.0.1:9100-10.0.0.3:50200#1",
+      "direction": "b_to_a",
+      "messages_ok": 3,
+      "messages_error": 0,
+      "coverage_min": 0.5
+    }
+  ],
+  "messages_ok_min": 6,
+  "messages_error_max": 0
+}

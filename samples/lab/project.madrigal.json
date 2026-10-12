@@ -1,0 +1,16 @@
+{
+  "name": "lab",
+  "created_at": "2026-10-12T18:05:07+00:00",
+  "format_version": 1,
+  "description": "Demo portable project",
+  "captures": [
+    "captures/main.pcap",
+    "captures/extra.pcap"
+  ],
+  "action_logs": [
+    "action_logs/action_log.json"
+  ],
+  "interpretations": [
+    "interpretations/device_v1.yaml"
+  ]
+}

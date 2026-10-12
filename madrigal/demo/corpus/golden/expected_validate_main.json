@@ -1,0 +1,10 @@
+{
+  "interpretation": "device_v1",
+  "pcap": "main.pcap",
+  "counters": {
+    "ok_min": 18,
+    "contradict_max": 0,
+    "uncovered_max": 0
+  },
+  "stale": false
+}

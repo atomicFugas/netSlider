@@ -1,0 +1,50 @@
+id: device_v1
+description: Demo MD01 length-prefixed device protocol
+scope:
+  protocol: demo-device
+  versions: ["1"]
+framing:
+  type: length_prefixed
+  header:
+    magic: MD01
+    magic_offset: 0
+    len_offset: 4
+    len_size: 2
+    endian: be
+    len_includes_header: false
+messages:
+  - name: read_param
+    when: { field: opcode, eq: 0x01 }
+    fields:
+      - { name: opcode, offset: 0, type: u8 }
+      - { name: param_id, offset: 1, type: u16le, hypothesis: "parameter id" }
+  - name: set_param
+    when: { field: opcode, eq: 0x02 }
+    fields:
+      - { name: opcode, offset: 0, type: u8 }
+      - { name: param_id, offset: 1, type: u16le }
+      - { name: value, offset: 3, type: u16le, hypothesis: "setpoint" }
+  - name: param_value
+    when: { field: opcode, eq: 0x03 }
+    fields:
+      - { name: opcode, offset: 0, type: u8 }
+      - { name: param_id, offset: 1, type: u16le }
+      - { name: value, offset: 3, type: u16le, status: observation }
+  - name: read_measurement
+    when: { field: opcode, eq: 0x10 }
+    fields:
+      - { name: opcode, offset: 0, type: u8 }
+      - { name: sensor_id, offset: 1, type: u8 }
+  - name: measurement_data
+    when: { field: opcode, eq: 0x11 }
+    fields:
+      - { name: opcode, offset: 0, type: u8 }
+      - { name: sensor_id, offset: 1, type: u8 }
+      - { name: n_bytes, offset: 2, type: u16le }
+      - { name: data, offset: 4, type: bytes, hypothesis: "measurement payload" }
+  - name: error
+    when: { field: opcode, eq: 0x7F }
+    fields:
+      - { name: opcode, offset: 0, type: u8 }
+      - { name: code, offset: 1, type: u8 }
+unknown_policy: leave_unparsed

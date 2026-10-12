@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "madrigal"
+version = "0.2.0"
+description = "Madrigal Protocol Laboratory — research lab for undocumented TCP binary protocols"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "PySide6>=6.6,<7",
+  "pyshark>=0.6",
+  "pandas>=2.1",
+  "click>=8.1",
+  "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+madrigal = "madrigal.app.main:main"
+madrigal-cli = "madrigal.cli.main:cli"
+madrigal-demo-corpus = "madrigal.demo.corpus.generate:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["madrigal*"]
+
+[tool.setuptools.package-data]
+madrigal = [
+  "demo/corpus/*.pcap",
+  "demo/corpus/*.json",
+  "demo/corpus/interpretations/*",
+  "demo/corpus/golden/*",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

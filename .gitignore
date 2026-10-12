@@ -1,0 +1,55 @@
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Project runtime
+*.madrigal/
+.madrigal_cache/
+
+# Live Docker captures under corpus (checked-in Phase 0 samples stay tracked)
+madrigal/demo/corpus/*_live.pcap
+madrigal/demo/corpus/*_live.pcapng
+
+# Logs / temp
+*.log
+tmp/
+temp/
+.cache/
+out/
+
+# Local scratch projects (samples/lab is the checked-in demo)
+test1/

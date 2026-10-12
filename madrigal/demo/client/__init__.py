@@ -1,0 +1,1 @@
+"""Scripted demo client."""

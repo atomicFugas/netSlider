@@ -1,0 +1,115 @@
+"""TCP reassembly edge cases."""
+
+from __future__ import annotations
+
+from madrigal.core.pcap.models import IPv4Endpoints, LinkType, PacketDiagnosis, PacketRecord, TCPInfo
+from madrigal.core.tcp.reassembly import SpanStatus, reassemble_session
+from madrigal.core.tcp.session import EndpointPair, SessionKey, TcpSession
+
+
+def _pkt(
+    pid: int,
+    seq: int,
+    payload: bytes,
+    *,
+    sport: int = 50100,
+    dport: int = 9100,
+    flags: int = 0x18,  # PSH+ACK
+    src: str = "10.0.0.2",
+    dst: str = "10.0.0.1",
+) -> PacketRecord:
+    return PacketRecord(
+        packet_id=pid,
+        ts=float(pid),
+        link_type=LinkType.ETHERNET,
+        raw=b"",
+        diagnosis=PacketDiagnosis.OK,
+        ipv4=IPv4Endpoints(src, dst),
+        tcp=TCPInfo(
+            src_port=sport,
+            dst_port=dport,
+            seq=seq,
+            ack=1,
+            flags=flags,
+            header_len=20,
+            payload=payload,
+            checksum=0,
+            checksum_ok=True,
+        ),
+    )
+
+
+def _session() -> TcpSession:
+    pair = EndpointPair("10.0.0.1", 9100, "10.0.0.2", 50100)
+    # canonical: 10.0.0.1:9100 < 10.0.0.2:50100? compare tuples
+    # ("10.0.0.1", 9100) < ("10.0.0.2", 50100) → a=server, b=client
+    return TcpSession(key=SessionKey("cap", pair, 1), packet_ids=[])
+
+
+def test_in_order_reassembly() -> None:
+    sess = _session()
+    # client → server is B_TO_A if a=server
+    pkts = [
+        _pkt(1, 1000, b"AAAA", flags=0x02),  # SYN alone — no payload path after +1
+        _pkt(2, 1001, b"HELLO"),
+        _pkt(3, 1006, b"WORLD"),
+    ]
+    # Fix: SYN with empty payload
+    pkts[0] = _pkt(1, 1000, b"", flags=0x02)
+    result = reassemble_session(sess, pkts, capture_id="cap")
+    # client 10.0.0.2 → server = B_TO_A
+    stream = result.b_to_a
+    assert stream.materialize() == b"HELLOWORLD"
+    assert stream.bytes_unknown == 0
+    assert all(s.status == SpanStatus.OK for s in stream.spans)
+
+
+def test_gap_marks_unknown() -> None:
+    sess = _session()
+    pkts = [
+        _pkt(1, 1000, b"AAAA"),
+        _pkt(2, 1010, b"BBBB"),  # gap of 6 bytes
+    ]
+    result = reassemble_session(sess, pkts, capture_id="cap")
+    stream = result.b_to_a
+    assert stream.bytes_unknown == 6
+    assert any(s.status == SpanStatus.UNKNOWN for s in stream.spans)
+    data = stream.materialize()
+    assert data.startswith(b"AAAA")
+    assert data.endswith(b"BBBB")
+    assert b"?" in data
+
+
+def test_identical_retransmit_deduped() -> None:
+    sess = _session()
+    pkts = [
+        _pkt(1, 1000, b"ABCD"),
+        _pkt(2, 1000, b"ABCD"),  # retransmit
+        _pkt(3, 1004, b"EF"),
+    ]
+    result = reassemble_session(sess, pkts, capture_id="cap")
+    stream = result.b_to_a
+    assert stream.materialize() == b"ABCDEF"
+    assert any("retransmit" in d for d in stream.defects)
+
+
+def test_overlap_conflict_ambiguous() -> None:
+    sess = _session()
+    pkts = [
+        _pkt(1, 1000, b"AAAA"),
+        _pkt(2, 1002, b"XXYY"),  # overlaps last 2 of AAAA with XX, then YY new
+    ]
+    result = reassemble_session(sess, pkts, capture_id="cap")
+    stream = result.b_to_a
+    # first_seen keeps original AAAA bytes; new tail YY is appended
+    assert stream.materialize() == b"AAAAYY"
+    assert any("AMBIGUOUS" in d for d in stream.defects)
+
+
+def test_provenance_packet_roundtrip() -> None:
+    sess = _session()
+    pkts = [_pkt(7, 500, b"MD01")]
+    result = reassemble_session(sess, pkts, capture_id="cap")
+    stream = result.b_to_a
+    assert stream.provenance.packet_for_offset(0) == 7
+    assert stream.provenance.range_for_packet(7) == (0, 4)
