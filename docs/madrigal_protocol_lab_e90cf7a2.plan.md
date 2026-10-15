@@ -387,3 +387,13 @@ Portable projects, report/CLI apply, progress/cancel workers, resource limits & 
 
 ## Out of scope (per brief; not planned)
 Live capture UI, TLS decryption, compression codecs, full state-machine recovery, IPv6/non-Ethernet (diagnose only).
+
+## Phase 5+ follow-on (post Phase 4)
+
+Implemented after the original phased delivery:
+
+- Async corpus validate (`ValidateWorker`) with Cancel in the Interpret panel
+- Multi-capture corpus validation (`validate_project_captures`, UI checklist, `madrigal-cli validate --project`)
+- Defect demo PCAPs under `madrigal/demo/corpus/defects/` (gap / retransmit / overlap)
+- Observations and Report preview tabs
+- CI workflow (pytest on Python 3.11/3.12) and `.gitignore` hardening for stress PCAPs

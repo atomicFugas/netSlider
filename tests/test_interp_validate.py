@@ -22,7 +22,12 @@ from madrigal.core.pcap import import_capture
 from madrigal.core.project import ProjectStore
 from madrigal.core.tcp import build_session_index, packets_for_session, reassemble_session
 from madrigal.core.tcp.session import Direction
-from madrigal.core.validate import refresh_stale, validate_stream, validate_workspace
+from madrigal.core.validate import (
+    refresh_stale,
+    validate_project_captures,
+    validate_stream,
+    validate_workspace,
+)
 from madrigal.core.workspace import CaptureWorkspace
 from madrigal.demo.protocol import Opcode, read_param, set_param
 
@@ -208,3 +213,30 @@ def test_validate_stream_provenance_packets() -> None:
     assert ok_hits
     # At least some framed messages should resolve to packet IDs via provenance
     assert any(h.packet_ids for h in ok_hits)
+
+
+def test_validate_project_captures_main_and_extra() -> None:
+    paths = [CORPUS / "main.pcap", CORPUS / "extra.pcap"]
+    result = validate_project_captures(INTERP_YAML, paths)
+    assert result.interpretation_id == "device_v1"
+    assert result.counters.ok >= 4
+    capture_ids = {h.capture_id for h in result.hits if h.capture_id}
+    assert "main" in capture_ids
+    assert "extra" in capture_ids
+    assert result.filters.get("capture_ids") == ["main", "extra"]
+
+
+def test_cli_validate_project_all_captures(tmp_path: Path) -> None:
+    from click.testing import CliRunner
+
+    from madrigal.cli.main import cli
+
+    store = ProjectStore.create(tmp_path / "lab", name="multi")
+    store.import_capture(CORPUS / "main.pcap")
+    store.import_capture(CORPUS / "extra.pcap")
+    store.import_interpretation(INTERP_YAML)
+    runner = CliRunner()
+    result = runner.invoke(cli, ["validate", "--project", str(store.root)])
+    assert result.exit_code == 0, result.output
+    assert "captures=2" in result.output
+    assert "ok=" in result.output

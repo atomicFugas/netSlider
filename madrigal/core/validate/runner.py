@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Callable, Iterable
 
 from madrigal.core.interp.apply import apply_declarative, apply_interpretation_file
 from madrigal.core.interp.hashutil import content_hash
@@ -12,7 +12,7 @@ from madrigal.core.interp.schema import InterpretationDoc, load_interpretation
 from madrigal.core.tcp.reassembly import DirectedStream, SpanStatus
 from madrigal.core.tcp.session import Direction
 from madrigal.core.validate.result import ValidationCounters, ValidationHit, ValidationResult
-from madrigal.core.workspace import CaptureWorkspace
+from madrigal.core.workspace import CaptureWorkspace, build_workspace_from_path
 
 
 def _stream_pair(workspace: CaptureWorkspace, session_id: str) -> tuple[DirectedStream, DirectedStream] | None:
@@ -263,6 +263,103 @@ def validate_workspace(
         filters={
             "capture_id": capture_id,
             "session_ids": selected,
+            "directions": [d.value for d in dirs],
+        },
+        counters=merged,
+        hits=hits,
+        notes=notes,
+    )
+
+
+def validate_project_captures(
+    doc: InterpretationDoc | Path,
+    capture_paths: Iterable[Path],
+    *,
+    settings: dict[str, Any] | None = None,
+    session_ids: Iterable[str] | None = None,
+    directions: Iterable[Direction] | None = None,
+    progress: Callable[[str], None] | None = None,
+    cancel_check: Callable[[], bool] | None = None,
+) -> ValidationResult:
+    """Validate an interpretation across multiple capture files and merge results."""
+    paths = [Path(p) for p in capture_paths]
+    if not paths:
+        raise ValueError("No capture paths provided for corpus validation")
+
+    if isinstance(doc, Path):
+        path = doc
+        if path.suffix.lower() == ".py":
+            interp_id = path.stem
+            interp_hash = ""
+        else:
+            loaded = load_interpretation(path)
+            interp_id = loaded.id
+            interp_hash = content_hash(loaded.content_for_hash)
+    else:
+        interp_id = doc.id
+        interp_hash = content_hash(doc.content_for_hash)
+
+    merged = ValidationCounters()
+    hits: list[ValidationHit] = []
+    notes: list[str] = []
+    capture_ids: list[str] = []
+
+    for i, cap_path in enumerate(paths):
+        if cancel_check and cancel_check():
+            raise InterruptedError("cancelled")
+        if progress:
+            progress(f"Validating capture {i + 1}/{len(paths)}: {cap_path.name}…")
+        try:
+            workspace = build_workspace_from_path(
+                cap_path,
+                settings=settings,
+                cancel_check=cancel_check,
+            )
+        except InterruptedError:
+            raise
+        except Exception as exc:
+            notes.append(f"{cap_path.name}: {exc}")
+            merged.inapplicable += 1
+            hits.append(
+                ValidationHit(
+                    kind="inapplicable",
+                    capture_id=cap_path.stem,
+                    session_id="",
+                    direction="",
+                    stream_offset=0,
+                    length=0,
+                    note=str(exc),
+                )
+            )
+            continue
+
+        capture_ids.append(workspace.capture.capture_id)
+        one = validate_workspace(
+            doc,
+            workspace,
+            session_ids=session_ids,
+            directions=directions,
+        )
+        if not interp_hash:
+            interp_hash = one.interpretation_hash
+        c = one.counters
+        merged.ok += c.ok
+        merged.contradict += c.contradict
+        merged.uncovered += c.uncovered
+        merged.unknown += c.unknown
+        merged.ambiguous += c.ambiguous
+        merged.inapplicable += c.inapplicable
+        hits.extend(one.hits)
+        notes.extend(one.notes)
+
+    dirs = list(directions) if directions is not None else [Direction.A_TO_B, Direction.B_TO_A]
+    return ValidationResult(
+        interpretation_id=interp_id,
+        interpretation_hash=interp_hash,
+        filters={
+            "capture_ids": capture_ids,
+            "capture_paths": [p.name for p in paths],
+            "session_ids": list(session_ids) if session_ids is not None else None,
             "directions": [d.value for d in dirs],
         },
         counters=merged,

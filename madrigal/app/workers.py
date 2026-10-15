@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from PySide6.QtCore import QObject, Signal, Slot
 
@@ -10,6 +11,7 @@ from madrigal.core.limits import check_capture_file, check_packet_count
 from madrigal.core.pcap import PcapImportError, import_capture
 from madrigal.core.tcp import build_session_index, packets_for_session, reassemble_session
 from madrigal.core.tcp.reassembly import SessionStreams
+from madrigal.core.workspace import CaptureWorkspace
 
 
 class CaptureLoadWorker(QObject):
@@ -94,7 +96,6 @@ class CaptureLoadWorker(QObject):
                             error=str(exc),
                         )
                     )
-            from madrigal.core.workspace import CaptureWorkspace
 
             ws = CaptureWorkspace(capture=capture, sessions=sessions, streams=streams)
             self.finished.emit(ws)
@@ -105,23 +106,39 @@ class CaptureLoadWorker(QObject):
 
 
 class ValidateWorker(QObject):
-    """Apply corpus validation on a background thread."""
+    """Apply corpus validation on a background thread (single or multi-capture)."""
 
     progress = Signal(str)
     finished = Signal(object)  # ValidationResult
     failed = Signal(str)
     cancelled = Signal()
 
-    def __init__(self, interpretation: Path, workspace, session_ids=None, directions=None) -> None:
+    def __init__(
+        self,
+        interpretation: Any,
+        *,
+        workspace: CaptureWorkspace | None = None,
+        capture_paths: list[Path] | None = None,
+        settings: dict | None = None,
+        session_ids=None,
+        directions=None,
+        current_hash: str | None = None,
+    ) -> None:
         super().__init__()
         self.interpretation = interpretation
         self.workspace = workspace
+        self.capture_paths = list(capture_paths) if capture_paths else None
+        self.settings = settings
         self.session_ids = session_ids
         self.directions = directions
+        self.current_hash = current_hash
         self._cancel = False
 
     def cancel(self) -> None:
         self._cancel = True
+
+    def _cancelled(self) -> bool:
+        return self._cancel
 
     @Slot()
     def run(self) -> None:
@@ -129,18 +146,45 @@ class ValidateWorker(QObject):
             if self._cancel:
                 self.cancelled.emit()
                 return
-            self.progress.emit("Validating corpus…")
-            from madrigal.core.validate import validate_workspace
 
-            result = validate_workspace(
-                self.interpretation,
-                self.workspace,
-                session_ids=self.session_ids,
-                directions=self.directions,
+            from madrigal.core.validate import (
+                refresh_stale,
+                validate_project_captures,
+                validate_workspace,
             )
+
+            if self.capture_paths:
+                self.progress.emit("Validating corpus…")
+                result = validate_project_captures(
+                    self.interpretation,
+                    self.capture_paths,
+                    settings=self.settings,
+                    session_ids=self.session_ids,
+                    directions=self.directions,
+                    progress=lambda msg: self.progress.emit(msg),
+                    cancel_check=self._cancelled,
+                )
+            elif self.workspace is not None:
+                self.progress.emit("Validating corpus…")
+                result = validate_workspace(
+                    self.interpretation,
+                    self.workspace,
+                    session_ids=self.session_ids,
+                    directions=self.directions,
+                )
+            else:
+                self.failed.emit("No workspace or capture paths for validation")
+                return
+
             if self._cancel:
                 self.cancelled.emit()
                 return
+
+            if self.current_hash:
+                refresh_stale(result, self.current_hash)
             self.finished.emit(result)
+        except InterruptedError:
+            self.cancelled.emit()
         except Exception as exc:
             self.failed.emit(str(exc))
+)

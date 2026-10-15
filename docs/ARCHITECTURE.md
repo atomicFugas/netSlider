@@ -5,6 +5,7 @@
 ```
 PySide6 UI (app/)
     │  project browser · sessions · hex · investigate · interpret/validate
+    │  observations · report preview
     ▼
 Core library (core/)
     pcap/          import (classic PCAP + PyShark/PCAPNG)
@@ -12,13 +13,13 @@ Core library (core/)
     provenance/    stream byte ↔ packet maps
     investigate/   action-log align, framing probes, compare
     interp/        declarative YAML + sandboxed Python apply
-    validate/      corpus counters + stale hash
+    validate/      corpus counters + stale hash + multi-capture merge
     project/       portable directory store (relative paths only)
     report/        Markdown + machine interpretation JSON
     limits.py      soft/hard NFR thresholds
     ▼
 Demo stand (demo/)
-    mock device + scripted client + synthetic PCAP corpus + golden/
+    mock device + scripted client + synthetic PCAP corpus + defects/ + golden/
 ```
 
 ## Provenance (non-negotiable)
@@ -46,7 +47,8 @@ Directed streams follow RFC 9293-inspired rules:
 2. **Python** (advanced): `frame(stream) -> spans`, `parse(message) -> dict` in a
    restricted subprocess with timeout.
 
-Both paths share `ApplyResult` and feed `validate_workspace`.
+Both paths share `ApplyResult` and feed `validate_workspace` /
+`validate_project_captures`.
 
 ## Portable project (R5)
 
@@ -65,16 +67,18 @@ Open after directory move: resolve via `ProjectStore.resolve_rel` /
 
 ## Long operations
 
-`CaptureLoadWorker` (and optional `ValidateWorker`) run on `QThread` with
-progress strings and cooperative cancel between sessions. UI **Cancel load**
-wires `worker.cancel()`.
+`CaptureLoadWorker` and `ValidateWorker` run on `QThread` with progress
+strings and cooperative cancel. UI **Cancel load** / Interpret **Cancel**
+wire `worker.cancel()`. Multi-capture validate checks cancel between files.
 
 ## Headless reuse (R6)
 
 ```
 madrigal apply --project ./lab --pcap extra.pcap
 madrigal validate device_v1.yaml main.pcap
+madrigal validate --project ./lab
 madrigal report --project ./lab --pcap main.pcap --out ./out
 ```
 
 Golden summaries live under `madrigal/demo/corpus/golden/`.
+Defect PCAPs live under `madrigal/demo/corpus/defects/`.

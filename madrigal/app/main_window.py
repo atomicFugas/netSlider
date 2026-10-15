@@ -32,6 +32,8 @@ from PySide6.QtWidgets import (
 from madrigal import __version__
 from madrigal.app.panels.interp_panel import InterpPanel
 from madrigal.app.panels.investigate_panel import InvestigatePanel
+from madrigal.app.panels.observations_panel import ObservationsPanel
+from madrigal.app.panels.report_panel import ReportPanel
 from madrigal.app.widgets.hex_view import HexView
 from madrigal.app.workers import CaptureLoadWorker
 from madrigal.core.project import ProjectError, ProjectStore
@@ -203,6 +205,17 @@ class MainWindow(QMainWindow):
         self.interp.statusMessage.connect(self._set_status)
         self.bottom_tabs.addTab(self.interp, "Interpret / Validate")
 
+        self.observations = ObservationsPanel()
+        _shrinkable(self.observations)
+        self.observations.jumpToStreamRange.connect(self._jump_to_stream_range)
+        self.observations.statusMessage.connect(self._set_status)
+        self.bottom_tabs.addTab(self.observations, "Observations")
+
+        self.report = ReportPanel()
+        _shrinkable(self.report)
+        self.report.statusMessage.connect(self._set_status)
+        self.bottom_tabs.addTab(self.report, "Report")
+
         self.main_split.addWidget(self.bottom_tabs)
 
         self.main_split.setStretchFactor(0, 3)
@@ -291,6 +304,8 @@ class MainWindow(QMainWindow):
         if self.project is None:
             self.project_info.setText("—")
             self.interp.set_project(None)
+            self.observations.set_project(None)
+            self.report.set_project(None)
             return
         p = self.project
         self.project_info.setText(
@@ -306,6 +321,8 @@ class MainWindow(QMainWindow):
                 except Exception as exc:
                     self._set_status(f"Action log load failed: {exc}")
         self.interp.set_project(p)
+        self.observations.set_project(p)
+        self.report.set_project(p)
         self._set_status(f"Project open: {p.root}")
 
     def new_project(self) -> None:
@@ -482,6 +499,8 @@ class MainWindow(QMainWindow):
         self.workspace = workspace
         self.investigate.set_workspace(workspace)
         self.interp.set_workspace(workspace)
+        self.observations.set_workspace(workspace)
+        self.report.set_workspace(workspace)
         self.session_list.clear()
         for sess in workspace.sessions.sessions:
             item = QListWidgetItem(sess.display_name)
@@ -529,6 +548,7 @@ class MainWindow(QMainWindow):
             self._current_direction,
             stream,
         )
+        self.observations.set_session(self._current_session_id, self._current_direction)
 
     def _current_stream(self):
         if self.workspace is None or self._current_session_id is None:
@@ -665,6 +685,7 @@ class MainWindow(QMainWindow):
     def _on_hex_selection(self, start: int, length: int) -> None:
         self._hex_sel_start = start
         self._hex_sel_len = length
+        self.observations.set_selection(start, length)
 
     def _mark_selection_a(self) -> None:
         if self._hex_sel_len <= 0:
@@ -699,53 +720,10 @@ class MainWindow(QMainWindow):
             self.hex_view.set_markers(highlight=set(range(start, start + length)))
 
     def export_report(self) -> None:
-        if not self._require_project():
-            return
-        assert self.project is not None
-        out_dir = QFileDialog.getExistingDirectory(self, "Export report to directory")
-        if not out_dir:
-            return
-        from madrigal.core.report import ReportDraft, write_report
-
-        interps = self.project.list_interpretations()
-        if not interps:
-            QMessageBox.information(
-                self, "Report", "Import or save an interpretation first."
-            )
-            return
-        interp = interps[0]
-        validation = None
-        if self.workspace is not None:
-            from madrigal.core.validate import validate_workspace
-
-            try:
-                validation = validate_workspace(interp, self.workspace)
-            except Exception as exc:
-                QMessageBox.warning(self, "Report", f"Validation skipped: {exc}")
-        draft = ReportDraft(
-            title=f"{self.project.meta.name} — protocol report",
-            rationale="Lab notes exported from the Madrigal workbench.",
-            scope=f"Interpretation `{interp.name}`; "
-            f"captures={len(self.project.meta.captures)}.",
-            open_questions=["Review uncovered / contradict hits in validation."],
-        )
-        try:
-            md_path, json_path = write_report(
-                Path(out_dir),
-                project=self.project,
-                draft=draft,
-                interpretation=interp,
-                validation=validation,
-                basename="madrigal_report",
-            )
-        except Exception as exc:
-            QMessageBox.critical(self, "Report failed", str(exc))
-            return
-        msg = f"Wrote {md_path}"
-        if json_path:
-            msg += f"\nand {json_path}"
-        QMessageBox.information(self, "Report", msg)
-        self._set_status(f"Exported report to {out_dir}")
+        if self.interp._last_validation is not None:
+            self.report.set_validation(self.interp._last_validation)
+        self.bottom_tabs.setCurrentWidget(self.report)
+        self.report.export_report()
 
     def package_project(self) -> None:
         if not self._require_project():
@@ -776,6 +754,6 @@ class MainWindow(QMainWindow):
             self,
             "About Madrigal",
             f"<h3>Madrigal Protocol Laboratory {__version__}</h3>"
-            "<p>Phase 4: portable projects, Markdown/JSON reports, CLI reuse, "
-            "resource limits, and golden corpus tests — plus Phases 1–3 tooling.</p>",
+            "<p>Portable projects, multi-capture validation, reports, observations, "
+            "CLI reuse, defect corpus, and golden tests — Phases 0–5+.</p>",
         )

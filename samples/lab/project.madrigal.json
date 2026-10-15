@@ -11,6 +11,7 @@
     "action_logs/action_log.json"
   ],
   "interpretations": [
-    "interpretations/device_v1.yaml"
+    "interpretations/device_v1.yaml",
+    "interpretations/device_v1_frame.py"
   ]
 }

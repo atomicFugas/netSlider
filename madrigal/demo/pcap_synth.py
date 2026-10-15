@@ -170,3 +170,74 @@ def build_tcp_session_pcap(
         send_tcp(fin_t + 0.001, server, client, s_seq, c_seq, TCP_FLAG_FIN | TCP_FLAG_ACK, b"")
         s_seq += 1
         send_tcp(fin_t + 0.002, client, server, c_seq, s_seq, TCP_FLAG_ACK, b"")
+
+
+def build_client_data_pcap(
+    path: Path,
+    data_packets: list[tuple[int, bytes]],
+    client: Endpoint,
+    server: Endpoint,
+    t0: float,
+    *,
+    client_isn: int = 1000,
+    server_isn: int = 2000,
+) -> None:
+    """Write handshake + client→server data packets with explicit TCP sequence numbers.
+
+    ``data_packets`` is a list of ``(seq, payload)`` using absolute post-handshake
+    sequence numbers (ISN+1 for the first contiguous byte after SYN).
+    Used to synthesize defect captures (gap / retransmit / overlap).
+    """
+    c_seq = client_isn
+    s_seq = server_isn
+    ident = 1
+
+    def eth(src_mac: bytes, dst_mac: bytes, payload: bytes) -> bytes:
+        return dst_mac + src_mac + ETH_TYPE_IPV4 + payload
+
+    def send_tcp(
+        t: float,
+        src: Endpoint,
+        dst: Endpoint,
+        seq: int,
+        ack: int,
+        flags: int,
+        payload: bytes,
+    ) -> None:
+        nonlocal ident
+        tcp = _tcp_header(src.port, dst.port, seq, ack, flags, payload, src.ip, dst.ip)
+        ip = _ipv4_header(src.ip, dst.ip, len(tcp) + len(payload), ident=ident)
+        ident += 1
+        frame = eth(src.mac, dst.mac, ip + tcp + payload)
+        writer.write_frame(t, frame)
+
+    with PcapWriter(path) as writer:
+        send_tcp(t0, client, server, c_seq, 0, TCP_FLAG_SYN, b"")
+        c_seq += 1
+        send_tcp(t0 + 0.001, server, client, s_seq, c_seq, TCP_FLAG_SYN | TCP_FLAG_ACK, b"")
+        s_seq += 1
+        send_tcp(t0 + 0.002, client, server, c_seq, s_seq, TCP_FLAG_ACK, b"")
+
+        t = t0 + 0.01
+        ack_point = c_seq
+        for seq, payload in data_packets:
+            send_tcp(
+                t,
+                client,
+                server,
+                seq,
+                s_seq,
+                TCP_FLAG_PSH | TCP_FLAG_ACK,
+                payload,
+            )
+            end = seq + len(payload)
+            if end > ack_point:
+                ack_point = end
+            send_tcp(t + 0.0005, server, client, s_seq, ack_point, TCP_FLAG_ACK, b"")
+            t += 0.01
+
+        send_tcp(t, client, server, ack_point, s_seq, TCP_FLAG_FIN | TCP_FLAG_ACK, b"")
+        ack_point += 1
+        send_tcp(t + 0.001, server, client, s_seq, ack_point, TCP_FLAG_FIN | TCP_FLAG_ACK, b"")
+        s_seq += 1
+        send_tcp(t + 0.002, client, server, ack_point, s_seq, TCP_FLAG_ACK, b"")

@@ -44,6 +44,10 @@ htmlcov/
 madrigal/demo/corpus/*_live.pcap
 madrigal/demo/corpus/*_live.pcapng
 
+# Generated NFR / stress captures (do not commit)
+madrigal/demo/corpus/stress_*.pcap
+madrigal/demo/corpus/stress_smoke.pcap
+
 # Logs / temp
 *.log
 tmp/
@@ -51,5 +55,11 @@ temp/
 .cache/
 out/
 
+# Accidental project zip dumps at repo root
+/*.zip
+
 # Local scratch projects (samples/lab is the checked-in demo)
 test1/
+.aider*
+.aider.model.settings.yml*
+/.cursor

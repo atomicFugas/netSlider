@@ -237,6 +237,11 @@ def apply_cmd(
 @click.option("--pcap", "pcap_opt", type=click.Path(exists=True, dir_okay=False))
 @click.option("--interpretation", "interp_opt", type=click.Path())
 @click.option("--interp-name", default=None)
+@click.option(
+    "--all-captures",
+    is_flag=True,
+    help="With --project and no --pcap: validate all project captures",
+)
 @click.option("--json-out", "json_out", is_flag=True, help="Emit machine-readable JSON")
 def validate_cmd(
     legacy_interp: str | None,
@@ -245,26 +250,54 @@ def validate_cmd(
     pcap_opt: str | None,
     interp_opt: str | None,
     interp_name: str | None,
+    all_captures: bool,
     json_out: bool,
 ) -> None:
-    """Run corpus validation of an interpretation against a capture."""
-    from madrigal.core.validate import validate_workspace
+    """Run corpus validation of an interpretation against one or more captures."""
+    from madrigal.core.validate import validate_project_captures, validate_workspace
 
     interp_arg = interp_opt or legacy_interp
     pcap_arg = pcap_opt or legacy_pcap
-    if not pcap_arg:
-        raise click.ClickException("Provide a PCAP path (positional or --pcap)")
 
+    store = None
     settings = None
     if project:
         try:
-            settings = ProjectStore.open(Path(project)).settings
+            store = ProjectStore.open(Path(project))
+            settings = store.settings
         except ProjectError as exc:
             raise click.ClickException(str(exc)) from exc
 
     interp_path = _resolve_interpretation(interp_arg, project, interp_name)
     if not interp_path.is_file():
         raise click.ClickException(f"Interpretation not found: {interp_path}")
+
+    # Project corpus mode: --project with --all-captures, or --project alone (no pcap)
+    if store is not None and (all_captures or not pcap_arg):
+        paths = [
+            store.resolve_rel(rel)
+            for rel in store.meta.captures
+            if (store.root / rel).is_file()
+        ]
+        if not paths:
+            raise click.ClickException("Project has no capture files to validate")
+        result = validate_project_captures(interp_path, paths, settings=settings)
+        if json_out:
+            click.echo(json.dumps(result.to_dict(), indent=2))
+        else:
+            c = result.counters
+            click.echo(
+                f"{result.interpretation_id} hash={result.interpretation_hash[:12]}… "
+                f"captures={len(paths)} stale={result.stale}\n"
+                f"  ok={c.ok} contradict={c.contradict} uncovered={c.uncovered} "
+                f"unknown={c.unknown} ambiguous={c.ambiguous} inapplicable={c.inapplicable}"
+            )
+        return
+
+    if not pcap_arg:
+        raise click.ClickException(
+            "Provide a PCAP path (positional or --pcap), or --project for all captures"
+        )
 
     path = Path(pcap_arg)
     ws = _load_workspace(path, settings)

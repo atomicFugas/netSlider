@@ -27,8 +27,10 @@ results that remain auditable and reusable on new captures.
 
 A fake MD01 length-prefixed device (read/set param, measurement) produces the
 checked-in corpus (`main.pcap`, `extra.pcap`, action logs) so evaluation does
-not require hardware. Stress profiles under `demo/corpus/stress.py` exercise
-the ~100 MiB / 250k packet NFR with `scripts/measure_profile.py`.
+not require hardware. Defect captures under `demo/corpus/defects/` exercise
+UNKNOWN / retransmit / AMBIGUOUS reassembly. Stress profiles under
+`demo/corpus/stress.py` exercise the ~100 MiB / 250k packet NFR with
+`scripts/measure_profile.py`.
 
 ## What we deliberately skip
 

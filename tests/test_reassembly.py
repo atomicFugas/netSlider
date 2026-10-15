@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from madrigal.core.pcap import import_capture
 from madrigal.core.pcap.models import IPv4Endpoints, LinkType, PacketDiagnosis, PacketRecord, TCPInfo
-from madrigal.core.tcp.reassembly import SpanStatus, reassemble_session
+from madrigal.core.tcp import build_session_index, packets_for_session, reassemble_session
+from madrigal.core.tcp.reassembly import SpanStatus
 from madrigal.core.tcp.session import EndpointPair, SessionKey, TcpSession
+from madrigal.demo.corpus.defects import generate_defect_pcaps
+
+ROOT = Path(__file__).resolve().parents[1]
+DEFECTS = ROOT / "madrigal" / "demo" / "corpus" / "defects"
 
 
 def _pkt(
@@ -113,3 +121,51 @@ def test_provenance_packet_roundtrip() -> None:
     stream = result.b_to_a
     assert stream.provenance.packet_for_offset(0) == 7
     assert stream.provenance.range_for_packet(7) == (0, 4)
+
+
+def _client_stream_from_pcap(path: Path):
+    cap = import_capture(path, capture_id=path.stem)
+    index = build_session_index(cap)
+    assert index.sessions
+    sess = index.sessions[0]
+    return reassemble_session(sess, packets_for_session(cap, sess), capture_id=cap.capture_id)
+
+
+def test_defect_pcap_gap(tmp_path: Path) -> None:
+    paths = generate_defect_pcaps(tmp_path / "defects")
+    streams = _client_stream_from_pcap(paths["gap"])
+    stream = streams.b_to_a
+    assert stream.bytes_unknown == 6
+    assert any(s.status == SpanStatus.UNKNOWN for s in stream.spans)
+
+
+def test_defect_pcap_retransmit(tmp_path: Path) -> None:
+    paths = generate_defect_pcaps(tmp_path / "defects")
+    streams = _client_stream_from_pcap(paths["retransmit"])
+    stream = streams.b_to_a
+    assert stream.materialize() == b"ABCDEF"
+    assert any("retransmit" in d for d in stream.defects)
+
+
+def test_defect_pcap_overlap(tmp_path: Path) -> None:
+    paths = generate_defect_pcaps(tmp_path / "defects")
+    streams = _client_stream_from_pcap(paths["overlap"])
+    stream = streams.b_to_a
+    assert stream.materialize() == b"AAAAYY"
+    assert any("AMBIGUOUS" in d for d in stream.defects)
+
+
+def test_checked_in_defect_pcaps_if_present() -> None:
+    """When corpus defects/ is checked in, files must match unit expectations."""
+    if not DEFECTS.is_dir():
+        return
+    for name, check in (
+        ("gap.pcap", lambda s: s.bytes_unknown == 6),
+        ("retransmit.pcap", lambda s: s.materialize() == b"ABCDEF"),
+        ("overlap.pcap", lambda s: s.materialize() == b"AAAAYY"),
+    ):
+        path = DEFECTS / name
+        if not path.is_file():
+            continue
+        streams = _client_stream_from_pcap(path)
+        assert check(streams.b_to_a), name

@@ -4,14 +4,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QCheckBox,
     QComboBox,
     QFormLayout,
     QHBoxLayout,
     QLabel,
+    QListWidget,
+    QListWidgetItem,
     QMessageBox,
     QPushButton,
     QScrollArea,
@@ -24,6 +27,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from madrigal.app.workers import ValidateWorker
 from madrigal.core.interp import (
     DEMO_DEVICE_V1_YAML,
     SchemaError,
@@ -36,7 +40,7 @@ from madrigal.core.interp.python_hook import PythonHookError
 from madrigal.core.project import ProjectStore
 from madrigal.core.tcp.reassembly import DirectedStream
 from madrigal.core.tcp.session import Direction
-from madrigal.core.validate import ValidationResult, refresh_stale, validate_workspace
+from madrigal.core.validate import ValidationResult
 from madrigal.core.workspace import CaptureWorkspace
 
 _STATUS_COLORS = {
@@ -75,6 +79,8 @@ class InterpPanel(QWidget):
         self._stream: DirectedStream | None = None
         self._last_validation: ValidationResult | None = None
         self._loaded_path: Path | None = None
+        self._validate_thread: QThread | None = None
+        self._validate_worker: ValidateWorker | None = None
 
         self.setMinimumHeight(0)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -95,9 +101,11 @@ class InterpPanel(QWidget):
     def set_project(self, project: ProjectStore | None) -> None:
         self.project = project
         self._refresh_file_list()
+        self._refresh_capture_list()
 
     def set_workspace(self, workspace: CaptureWorkspace | None) -> None:
         self.workspace = workspace
+        self._refresh_capture_list()
 
     def set_session(
         self,
@@ -156,9 +164,13 @@ class InterpPanel(QWidget):
         btn_save = QPushButton("Save to project")
         btn_save.clicked.connect(self._save_to_project)
         actions.addWidget(btn_save)
-        btn_validate = QPushButton("Validate corpus")
-        btn_validate.clicked.connect(self._validate_corpus)
-        actions.addWidget(btn_validate)
+        self.btn_validate = QPushButton("Validate corpus")
+        self.btn_validate.clicked.connect(self._validate_corpus)
+        actions.addWidget(self.btn_validate)
+        self.btn_cancel_validate = QPushButton("Cancel")
+        self.btn_cancel_validate.setEnabled(False)
+        self.btn_cancel_validate.clicked.connect(self._cancel_validate)
+        actions.addWidget(self.btn_cancel_validate)
         actions.addStretch(1)
         v.addLayout(actions)
 
@@ -166,10 +178,16 @@ class InterpPanel(QWidget):
         self.both_dirs = QCheckBox("Both directions")
         self.both_dirs.setChecked(True)
         form.addRow("Validate", self.both_dirs)
-        self.all_sessions = QCheckBox("All sessions in workspace")
+        self.all_sessions = QCheckBox("All sessions (per capture)")
         self.all_sessions.setChecked(True)
         form.addRow("", self.all_sessions)
         v.addLayout(form)
+
+        v.addWidget(QLabel("Corpus captures (checked = include; none = current workspace)"))
+        self.capture_list = QListWidget()
+        self.capture_list.setMaximumHeight(90)
+        self.capture_list.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        v.addWidget(self.capture_list)
 
         self.summary = QLabel("Apply an interpretation to parse the current stream.")
         self.summary.setWordWrap(True)
@@ -384,10 +402,49 @@ class InterpPanel(QWidget):
                 break
         self.statusMessage.emit(f"Saved {dest.name}")
 
-    def _validate_corpus(self) -> None:
-        if self.workspace is None:
-            QMessageBox.information(self, "Validate", "Load a capture into the workspace first.")
+    def _refresh_capture_list(self) -> None:
+        self.capture_list.clear()
+        if self.project is None:
             return
+        current_id = (
+            self.workspace.capture.capture_id if self.workspace is not None else None
+        )
+        for rel in self.project.meta.captures:
+            path = self.project.root / rel
+            if not path.is_file():
+                continue
+            item = QListWidgetItem(rel)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Checked)
+            item.setData(Qt.ItemDataRole.UserRole, path)
+            if current_id and path.stem == current_id:
+                item.setText(f"{rel} (loaded)")
+            self.capture_list.addItem(item)
+
+    def _selected_capture_paths(self) -> list[Path]:
+        paths: list[Path] = []
+        for i in range(self.capture_list.count()):
+            item = self.capture_list.item(i)
+            if item.checkState() == Qt.CheckState.Checked:
+                path = item.data(Qt.ItemDataRole.UserRole)
+                if path is not None:
+                    paths.append(Path(path))
+        return paths
+
+    def _validate_corpus(self) -> None:
+        if self._validate_thread is not None:
+            QMessageBox.information(self, "Busy", "Validation is already running.")
+            return
+
+        paths = self._selected_capture_paths()
+        if not paths and self.workspace is None:
+            QMessageBox.information(
+                self,
+                "Validate",
+                "Load a capture or check at least one project capture.",
+            )
+            return
+
         text = self._current_text()
         path = self.file_combo.currentData()
         dirs = (
@@ -398,46 +455,91 @@ class InterpPanel(QWidget):
         session_ids = None
         if not self.all_sessions.isChecked():
             if self.session_id is None:
-                QMessageBox.information(self, "Validate", "Select a session or enable all sessions.")
+                QMessageBox.information(
+                    self, "Validate", "Select a session or enable all sessions."
+                )
                 return
             session_ids = [self.session_id]
 
         try:
             if path is not None and Path(path).suffix.lower() == ".py":
-                result = validate_workspace(
-                    Path(path),
-                    self.workspace,
-                    session_ids=session_ids,
-                    directions=dirs,
-                )
+                interpretation: object = Path(path)
                 current_hash = file_content_hash(Path(path))
             else:
-                doc = parse_interpretation_text(text)
-                result = validate_workspace(
-                    doc,
-                    self.workspace,
-                    session_ids=session_ids,
-                    directions=dirs,
-                )
-                current_hash = content_hash(doc.content_for_hash)
-        except (SchemaError, PythonHookError, OSError, ValueError) as exc:
+                interpretation = parse_interpretation_text(text)
+                current_hash = content_hash(interpretation.content_for_hash)
+        except (SchemaError, OSError, ValueError) as exc:
             QMessageBox.critical(self, "Validate failed", str(exc))
             return
 
-        refresh_stale(result, current_hash)
+        settings = self.project.settings if self.project is not None else None
+        worker = ValidateWorker(
+            interpretation,
+            workspace=None if paths else self.workspace,
+            capture_paths=paths or None,
+            settings=settings,
+            session_ids=session_ids,
+            directions=dirs,
+            current_hash=current_hash,
+        )
+        thread = QThread(self)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.progress.connect(self.statusMessage.emit)
+        worker.finished.connect(self._on_validate_finished)
+        worker.failed.connect(self._on_validate_failed)
+        worker.cancelled.connect(self._on_validate_cancelled)
+        worker.finished.connect(thread.quit)
+        worker.failed.connect(thread.quit)
+        worker.cancelled.connect(thread.quit)
+        thread.finished.connect(worker.deleteLater)
+        thread.finished.connect(self._clear_validate_thread)
+        self._validate_thread = thread
+        self._validate_worker = worker
+        self.btn_validate.setEnabled(False)
+        self.btn_cancel_validate.setEnabled(True)
+        self.statusMessage.emit("Validating corpus…")
+        thread.start()
+
+    def _cancel_validate(self) -> None:
+        if self._validate_worker is not None:
+            self._validate_worker.cancel()
+            self.statusMessage.emit("Cancelling validation…")
+
+    def _clear_validate_thread(self) -> None:
+        self._validate_thread = None
+        self._validate_worker = None
+        self.btn_validate.setEnabled(True)
+        self.btn_cancel_validate.setEnabled(False)
+
+    def _on_validate_failed(self, message: str) -> None:
+        QMessageBox.critical(self, "Validate failed", message)
+        self.statusMessage.emit("Validation failed")
+
+    def _on_validate_cancelled(self) -> None:
+        self.statusMessage.emit("Validation cancelled")
+
+    def _on_validate_finished(self, result: object) -> None:
+        assert isinstance(result, ValidationResult)
         self._last_validation = result
         self._populate_validation(result)
 
         if self.project is not None:
             try:
+                caps = result.filters.get("capture_ids") or result.filters.get("capture_id")
+                suffix = (
+                    "corpus"
+                    if isinstance(caps, list)
+                    else (caps or "workspace")
+                )
                 self.project.save_validation(
-                    f"{result.interpretation_id}_{self.workspace.capture.capture_id}",
+                    f"{result.interpretation_id}_{suffix}",
                     result.to_dict(),
                 )
             except Exception as exc:
                 self.statusMessage.emit(f"Validation OK but save failed: {exc}")
 
-        stale = "  ⚠ STALE" if result.stale else ""
+        stale = "  STALE" if result.stale else ""
         c = result.counters
         self.summary.setText(
             f"Validation {result.interpretation_id}: "
@@ -467,7 +569,7 @@ class InterpPanel(QWidget):
                 str(hit.stream_offset),
                 str(hit.length),
                 f"{opcode} / {hit.matched_rule or '—'}",
-                hit.direction,
+                f"{hit.capture_id}:{hit.direction}" if hit.capture_id else hit.direction,
                 hit.note or "",
             ]
             for col, text in enumerate(vals):

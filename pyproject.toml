@@ -32,6 +32,7 @@ include = ["madrigal*"]
 madrigal = [
   "demo/corpus/*.pcap",
   "demo/corpus/*.json",
+  "demo/corpus/defects/*.pcap",
   "demo/corpus/interpretations/*",
   "demo/corpus/golden/*",
 ]

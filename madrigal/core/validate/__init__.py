@@ -7,6 +7,7 @@ from madrigal.core.validate.result import (
 )
 from madrigal.core.validate.runner import (
     refresh_stale,
+    validate_project_captures,
     validate_stream,
     validate_workspace,
 )
@@ -16,6 +17,7 @@ __all__ = [
     "ValidationHit",
     "ValidationResult",
     "refresh_stale",
+    "validate_project_captures",
     "validate_stream",
     "validate_workspace",
 ]

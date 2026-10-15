@@ -29,8 +29,10 @@ python -m madrigal.app.main
 | Import Capture / Action Log / Interpretation | Copies into project (relative paths) |
 | Load selected capture | Background import + reassembly (**Cancel load** on toolbar) |
 | Investigate tabs | Actions, Framing, Compare |
-| Interpret / Validate | YAML/Python editor, apply, corpus validation |
-| Export Report / Package Zip | Markdown+JSON report; zippable project |
+| Interpret / Validate | YAML/Python editor, apply, multi-capture corpus validate (async + Cancel) |
+| Observations | Notes linked to hex selection (offset/length + provenance) |
+| Report | Markdown preview + export (also File → Export Report) |
+| Package Zip | Zippable portable project |
 
 ## CLI
 
@@ -58,6 +60,9 @@ madrigal-cli apply --project ./samples/lab --pcap madrigal/demo/corpus/extra.pca
 madrigal-cli validate madrigal/demo/corpus/interpretations/device_v1.yaml \
   madrigal/demo/corpus/main.pcap --json-out
 
+# Validate all captures listed in a portable project
+madrigal-cli validate --project ./samples/lab
+
 madrigal-cli report --project ./samples/lab \
   --pcap madrigal/demo/corpus/main.pcap --out ./out
 madrigal-cli project-package ./samples/lab --out ./lab.zip
@@ -76,6 +81,23 @@ python -m madrigal.demo.corpus.golden
 ```
 
 Golden files: `madrigal/demo/corpus/golden/expected_*.json`.
+
+Defect captures (gap / retransmit / overlap) are written under
+`madrigal/demo/corpus/defects/` by the same generator.
+
+## Docker demo stand (optional)
+
+Local synth (`madrigal-demo-corpus`) is enough for development and CI.
+When Docker is available, the mock device + client + tcpdump path is:
+
+```bash
+cd madrigal/demo
+docker compose up --build
+```
+
+This writes a live capture as `madrigal/demo/corpus/main_live.pcapng`
+(gitignored). Requires a Docker engine that can run `nicolaka/netshoot`
+with `NET_RAW` / `NET_ADMIN` for tcpdump.
 
 ## NFR measurement
 
