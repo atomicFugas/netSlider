@@ -64,6 +64,9 @@ No Tkinter. No cloud. Main scenario is **offline**.
 
 ## Quick start
 
+**User guide:** [English](docs/USER_GUIDE.md) · [Русский](docs/USER_GUIDE.ru.md)
+(what it is, why, GUI/CLI walkthrough with `samples/lab`).
+
 ```bash
 python3.11 -m venv .venv
 source .venv/bin/activate
