@@ -1,8 +1,8 @@
 # Sample projects
 
-`lab/` is a portable Madrigal project seeded from `madrigal/demo/corpus`
+`lab/` is a portable netSlider project seeded from `netslider/demo/corpus`
 (main/extra captures, action log, `device_v1` interpretation).
 
 ```bash
-python -m madrigal.cli.main apply --project ./samples/lab --pcap madrigal/demo/corpus/extra.pcap
+python -m netslider.cli.main apply --project ./samples/lab --pcap netslider/demo/corpus/extra.pcap
 ```

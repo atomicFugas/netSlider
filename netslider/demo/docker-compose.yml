@@ -1,0 +1,46 @@
+# Preferred capture path when Docker is available.
+# Phase 0 also supports local synthesis via: netslider-demo-corpus
+services:
+  device:
+    build:
+      context: ../..
+      dockerfile: netslider/demo/device/Dockerfile
+    ports:
+      - "9100:9100"
+    networks:
+      - lab
+
+  client:
+    build:
+      context: ../..
+      dockerfile: netslider/demo/client/Dockerfile
+    depends_on:
+      - device
+    volumes:
+      - ./corpus:/corpus
+    networks:
+      - lab
+
+  capture:
+    image: nicolaka/netshoot:latest
+    depends_on:
+      - device
+      - client
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    network_mode: service:device
+    volumes:
+      - ./corpus:/corpus
+    command: >
+      sh -c "tcpdump -i any -w /corpus/main_live.pcapng tcp port 9100 &
+             sleep 2;
+             # wait for client container activity window
+             sleep 15;
+             kill %1;
+             wait;
+             ls -la /corpus"
+
+networks:
+  lab:
+    driver: bridge

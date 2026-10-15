@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from madrigal.core.interp import (
+from netslider.core.interp import (
     DEMO_DEVICE_V1_YAML,
     SchemaError,
     apply_declarative,
@@ -15,24 +15,24 @@ from madrigal.core.interp import (
     load_interpretation,
     parse_interpretation_text,
 )
-from madrigal.core.interp.hashutil import content_hash
-from madrigal.core.interp.models import ValueStatus
-from madrigal.core.interp.python_hook import PythonHookError
-from madrigal.core.pcap import import_capture
-from madrigal.core.project import ProjectStore
-from madrigal.core.tcp import build_session_index, packets_for_session, reassemble_session
-from madrigal.core.tcp.session import Direction
-from madrigal.core.validate import (
+from netslider.core.interp.hashutil import content_hash
+from netslider.core.interp.models import ValueStatus
+from netslider.core.interp.python_hook import PythonHookError
+from netslider.core.pcap import import_capture
+from netslider.core.project import ProjectStore
+from netslider.core.tcp import build_session_index, packets_for_session, reassemble_session
+from netslider.core.tcp.session import Direction
+from netslider.core.validate import (
     refresh_stale,
     validate_project_captures,
     validate_stream,
     validate_workspace,
 )
-from madrigal.core.workspace import CaptureWorkspace
-from madrigal.demo.protocol import Opcode, read_param, set_param
+from netslider.core.workspace import CaptureWorkspace
+from netslider.demo.protocol import Opcode, read_param, set_param
 
 ROOT = Path(__file__).resolve().parents[1]
-CORPUS = ROOT / "madrigal" / "demo" / "corpus"
+CORPUS = ROOT / "netslider" / "demo" / "corpus"
 INTERP_YAML = CORPUS / "interpretations" / "device_v1.yaml"
 INTERP_PY = CORPUS / "interpretations" / "device_v1_frame.py"
 
@@ -66,7 +66,7 @@ def test_apply_declarative_on_synthetic_bytes() -> None:
     doc = parse_interpretation_text(DEMO_DEVICE_V1_YAML)
     blob = read_param(7) + set_param(7, 42)
     # Minimal DirectedStream stub via reassembly on empty — use materialize override
-    from madrigal.core.tcp.reassembly import DirectedStream
+    from netslider.core.tcp.reassembly import DirectedStream
 
     stream = DirectedStream(session_id="s1", direction=Direction.A_TO_B)
     result = apply_declarative(doc, stream, capture_id="synth", data=blob)
@@ -144,8 +144,8 @@ def test_python_hook_timeout(tmp_path: Path) -> None:
         "    return []\n",
         encoding="utf-8",
     )
-    from madrigal.core.interp.python_hook import apply_python_script
-    from madrigal.core.tcp.reassembly import DirectedStream
+    from netslider.core.interp.python_hook import apply_python_script
+    from netslider.core.tcp.reassembly import DirectedStream
 
     stream = DirectedStream(session_id="s", direction=Direction.A_TO_B)
     with pytest.raises(PythonHookError, match="timed out"):
@@ -229,7 +229,7 @@ def test_validate_project_captures_main_and_extra() -> None:
 def test_cli_validate_project_all_captures(tmp_path: Path) -> None:
     from click.testing import CliRunner
 
-    from madrigal.cli.main import cli
+    from netslider.cli.main import cli
 
     store = ProjectStore.create(tmp_path / "lab", name="multi")
     store.import_capture(CORPUS / "main.pcap")

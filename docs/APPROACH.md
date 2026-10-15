@@ -1,4 +1,4 @@
-# Madrigal — Approach
+# netSlider — Approach
 
 ## Problem
 
@@ -20,7 +20,7 @@ results that remain auditable and reusable on new captures.
    ambiguous / inapplicable; mark runs **stale** when the interpretation hash
    changes.
 6. **Export for reuse** — Markdown rationale + machine interpretation JSON;
-   `madrigal apply --project … --pcap extra.pcap` proves generalization
+   `netslider-cli apply --project … --pcap extra.pcap` proves generalization
    (not filename lookup).
 
 ## Demo stand

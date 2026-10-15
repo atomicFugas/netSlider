@@ -34,18 +34,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", dest="json_out", action="store_true")
     args = parser.parse_args(argv)
 
-    from madrigal.core.interp import apply_interpretation_file
-    from madrigal.core.limits import check_capture_file, check_packet_count
-    from madrigal.core.pcap import import_capture
-    from madrigal.core.tcp import build_session_index, packets_for_session, reassemble_session
-    from madrigal.core.tcp.session import Direction
-    from madrigal.demo.corpus.stress import generate_stress_pcap
+    from netslider.core.interp import apply_interpretation_file
+    from netslider.core.limits import check_capture_file, check_packet_count
+    from netslider.core.pcap import import_capture
+    from netslider.core.tcp import build_session_index, packets_for_session, reassemble_session
+    from netslider.core.tcp.session import Direction
+    from netslider.demo.corpus.stress import generate_stress_pcap
 
-    interp = ROOT / "madrigal" / "demo" / "corpus" / "interpretations" / "device_v1.yaml"
+    interp = ROOT / "netslider" / "demo" / "corpus" / "interpretations" / "device_v1.yaml"
     if args.out is not None:
         pcap_path = args.out
     elif args.keep:
-        pcap_path = ROOT / "madrigal" / "demo" / "corpus" / f"stress_{args.profile}.pcap"
+        pcap_path = ROOT / "netslider" / "demo" / "corpus" / f"stress_{args.profile}.pcap"
     else:
         tmp = tempfile.NamedTemporaryFile(suffix=".pcap", delete=False)
         tmp.close()

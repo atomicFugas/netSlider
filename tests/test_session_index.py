@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from madrigal.core.pcap.models import (
+from netslider.core.pcap.models import (
     ImportedCapture,
     IPv4Endpoints,
     LinkType,
@@ -11,7 +11,7 @@ from madrigal.core.pcap.models import (
     TCPInfo,
     CaptureDiagnostics,
 )
-from madrigal.core.tcp.session import build_session_index
+from netslider.core.tcp.session import build_session_index
 
 
 def _tcp_pkt(pid: int, flags: int, seq: int = 1) -> PacketRecord:

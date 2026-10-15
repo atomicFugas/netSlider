@@ -6,19 +6,18 @@ import json
 import shutil
 from pathlib import Path
 
-import pytest
 from click.testing import CliRunner
 
-from madrigal.cli.main import cli
-from madrigal.core.limits import check_capture_file, check_packet_count, merge_limits
-from madrigal.core.project import ProjectStore
-from madrigal.core.report import ReportDraft, build_markdown_report, write_report
-from madrigal.core.interp import DEMO_DEVICE_V1_YAML, load_interpretation
-from madrigal.demo.corpus.golden import GOLDEN_DIR
-from madrigal.demo.corpus.stress import generate_stress_pcap
+from netslider.cli.main import cli
+from netslider.core.limits import check_capture_file, check_packet_count, merge_limits
+from netslider.core.project import ProjectStore
+from netslider.core.report import ReportDraft, build_markdown_report, write_report
+from netslider.core.interp import DEMO_DEVICE_V1_YAML, load_interpretation
+from netslider.demo.corpus.golden import GOLDEN_DIR
+from netslider.demo.corpus.stress import generate_stress_pcap
 
 ROOT = Path(__file__).resolve().parents[1]
-CORPUS = ROOT / "madrigal" / "demo" / "corpus"
+CORPUS = ROOT / "netslider" / "demo" / "corpus"
 INTERP = CORPUS / "interpretations" / "device_v1.yaml"
 
 
@@ -70,7 +69,7 @@ def test_report_markdown_and_json(tmp_path: Path) -> None:
     assert json_path is not None and json_path.is_file()
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     assert payload["id"] == "device_v1"
-    assert payload["madrigal_export"]["format"] == "interpretation/v1"
+    assert payload["netslider_export"]["format"] == "interpretation/v1"
 
 
 def test_cli_apply_project(tmp_path: Path) -> None:
@@ -115,8 +114,7 @@ def test_cli_report(tmp_path: Path) -> None:
 
 def test_golden_apply_extra() -> None:
     expected_path = GOLDEN_DIR / "expected_apply_extra.json"
-    if not expected_path.is_file():
-        pytest.skip("golden fixtures not generated")
+    assert expected_path.is_file(), f"missing golden fixture: {expected_path}"
     expected = json.loads(expected_path.read_text(encoding="utf-8"))
     runner = CliRunner()
     result = runner.invoke(
@@ -143,8 +141,7 @@ def test_golden_apply_extra() -> None:
 
 def test_golden_validate_main() -> None:
     expected_path = GOLDEN_DIR / "expected_validate_main.json"
-    if not expected_path.is_file():
-        pytest.skip("golden fixtures not generated")
+    assert expected_path.is_file(), f"missing golden fixture: {expected_path}"
     expected = json.loads(expected_path.read_text(encoding="utf-8"))
     runner = CliRunner()
     result = runner.invoke(

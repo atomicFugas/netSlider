@@ -1,5 +1,5 @@
 {
-  "format": "madrigal.action_log.v1",
+  "format": "netslider.action_log.v1",
   "device": "demo-device",
   "events": [
     {

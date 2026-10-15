@@ -7,13 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from madrigal.core.project import ProjectError, ProjectStore
+from netslider.core.project import ProjectError, ProjectStore
 
 
 def test_create_open_roundtrip(tmp_path: Path) -> None:
     root = tmp_path / "lab"
     store = ProjectStore.create(root, name="demo", description="phase0")
-    assert (root / "project.madrigal.json").is_file()
+    assert (root / "project.netslider.json").is_file()
     assert (root / "settings.json").is_file()
     for sub in ("captures", "action_logs", "interpretations", "observations", "validations"):
         assert (root / sub).is_dir()
@@ -41,7 +41,7 @@ def test_import_capture_copies(tmp_path: Path) -> None:
     assert dest.is_file()
     assert dest != src
     assert "captures/sample.pcap" in store.meta.captures
-    data = json.loads((root / "project.madrigal.json").read_text(encoding="utf-8"))
+    data = json.loads((root / "project.netslider.json").read_text(encoding="utf-8"))
     assert "captures/sample.pcap" in data["captures"]
 
 

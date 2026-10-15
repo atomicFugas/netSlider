@@ -1,11 +1,11 @@
-# Madrigal: rules for AI assistants
+# netSlider: rules for AI assistants
 
 Protocol laboratory for reverse-engineering undocumented binary TCP protocols from PCAP/PCAPNG and action logs. Stack: Python 3.11+, PySide6 UI, PyShark/TShark (+ classic PCAP parser), pandas, declarative YAML interpretations with optional sandboxed Python hooks, Click CLI, Docker demo stand.
 
 ## Workflow
 
-- Read `docs/ARCHITECTURE.md` and `docs/APPROACH.md` first. Use `docs/RUN.md` for local run and corpus setup. The phased plan lives in `docs/madrigal_protocol_lab_e90cf7a2.plan.md`.
-- Prefer extending `madrigal/core/` over one-off UI logic. Keep provenance links for every derived result.
+- Read `docs/ARCHITECTURE.md` and `docs/APPROACH.md` first. Use `docs/RUN.md` for local run and corpus setup. The phased plan lives in `docs/netslider_protocol_lab_e90cf7a2.plan.md`.
+- Prefer extending `netslider/core/` over one-off UI logic. Keep provenance links for every derived result.
 - If something is unclear or hard to undo, ask before acting.
 
 ## Rules

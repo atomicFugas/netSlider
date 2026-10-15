@@ -37,16 +37,16 @@ htmlcov/
 !.env.example
 
 # Project runtime
-*.madrigal/
-.madrigal_cache/
+*.netslider/
+.netslider_cache/
 
 # Live Docker captures under corpus (checked-in Phase 0 samples stay tracked)
-madrigal/demo/corpus/*_live.pcap
-madrigal/demo/corpus/*_live.pcapng
+netslider/demo/corpus/*_live.pcap
+netslider/demo/corpus/*_live.pcapng
 
 # Generated NFR / stress captures (do not commit)
-madrigal/demo/corpus/stress_*.pcap
-madrigal/demo/corpus/stress_smoke.pcap
+netslider/demo/corpus/stress_*.pcap
+netslider/demo/corpus/stress_smoke.pcap
 
 # Logs / temp
 *.log

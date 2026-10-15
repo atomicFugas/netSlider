@@ -1,16 +1,16 @@
-# Madrigal
+# netSlider
 ### Protocol Laboratory
 
 > Research undocumented binary exchange over TCP — keep every conclusion
 > tied to packets and bytes, and hand the project to another engineer without
 > losing the trail.
 
-Madrigal is a local desktop lab for reverse-engineering device protocols when
+netSlider is a local desktop lab for reverse-engineering device protocols when
 you have PCAP/PCAPNG and an action log, but no usable protocol spec. Open a
 capture, align it with what the client did, frame messages, write an
 interpretation, validate it on a corpus, and export a reproducible project.
 
-Built for the **МАДРИГАЛ / Madrigal Protocol Laboratory** case: offline,
+Built for the course case (historically **МАДРИГАЛ**): offline,
 provenance-first, transferable research.
 
 ---
@@ -23,7 +23,7 @@ must not change the reconstructed payload. A value that appears after
 “set 21” is only a **hypothesis** until it survives other parameters and
 counterexamples.
 
-Madrigal keeps those distinctions visible:
+netSlider keeps those distinctions visible:
 
 | Concept | Meaning |
 |---------|---------|
@@ -56,7 +56,7 @@ Madrigal keeps those distinctions visible:
 | Analysis | pandas |
 | Interpretations | YAML schema + optional Python hooks |
 | Demo stand | Docker mock device + scripted client |
-| Reuse | `madrigal-cli` headless apply / validate / report |
+| Reuse | `netslider-cli` headless apply / validate / report |
 
 No Tkinter. No cloud. Main scenario is **offline**.
 
@@ -73,26 +73,36 @@ pip install -e ".[dev]"
 # optional: TShark for PCAPNG
 # macOS: brew install wireshark
 
-madrigal-demo-corpus          # synthetic PCAPs + action logs
-madrigal                      # GUI
-madrigal-cli --help           # headless tools
+netslider-demo-corpus          # synthetic PCAPs + action logs
+netslider                      # GUI
+netslider-cli --help           # headless tools
 pytest -q
 ```
 
 Generate a research corpus without hardware:
 
 ```bash
-madrigal-demo-corpus
-# → madrigal/demo/corpus/main.pcap, action_log.json, extra.pcap, …
+netslider-demo-corpus
+# → netslider/demo/corpus/main.pcap, action_log.json, extra.pcap, …
 ```
 
 Or bring up the mock device stand:
 
 ```bash
-cd madrigal/demo && docker compose up --build
+cd netslider/demo && docker compose up --build
 ```
 
 Detailed steps: [docs/RUN.md](docs/RUN.md)
+
+### Windows zip (run on another PC)
+
+On a Windows build machine with the project venv:
+
+```powershell
+.\scripts\build_windows.ps1
+```
+
+Copy `dist\NetSlider-windows.zip` to the other PC, unzip, double-click `NetSlider.exe`. Locally after a build, use `NetSlider.bat` or `dist\NetSlider\NetSlider.exe` (never `build\netslider\`). No Python install required on the other PC. Classic PCAP works out of the box; PCAPNG needs Wireshark (`tshark` on `PATH`). See [docs/RUN.md](docs/RUN.md).
 
 ---
 
@@ -111,7 +121,7 @@ Detailed steps: [docs/RUN.md](docs/RUN.md)
   corpus validate ──► refine on counterexamples
         │
         ▼
-  portable project + report + `madrigal-cli apply`
+  portable project + report + `netslider-cli apply`
 ```
 
 Hand the project folder (or zip) to another machine: relative paths only,
@@ -122,7 +132,7 @@ sources immutable, stale validation marked when rules change.
 ## Project layout
 
 ```text
-madrigal/
+netslider/
   app/           PySide6 UI
   core/          PCAP, TCP, provenance, interp, validate, project, report
   cli/           Headless apply / validate / report
@@ -134,7 +144,7 @@ tests/
 Portable research project (example):
 
 ```text
-project.madrigal.json
+project.netslider.json
 captures/
 action_logs/
 interpretations/

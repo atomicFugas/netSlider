@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from madrigal.core.pcap import import_capture
-from madrigal.core.pcap.models import IPv4Endpoints, LinkType, PacketDiagnosis, PacketRecord, TCPInfo
-from madrigal.core.tcp import build_session_index, packets_for_session, reassemble_session
-from madrigal.core.tcp.reassembly import SpanStatus
-from madrigal.core.tcp.session import EndpointPair, SessionKey, TcpSession
-from madrigal.demo.corpus.defects import generate_defect_pcaps
+from netslider.core.pcap import import_capture
+from netslider.core.pcap.models import IPv4Endpoints, LinkType, PacketDiagnosis, PacketRecord, TCPInfo
+from netslider.core.tcp import build_session_index, packets_for_session, reassemble_session
+from netslider.core.tcp.reassembly import SpanStatus
+from netslider.core.tcp.session import EndpointPair, SessionKey, TcpSession
+from netslider.demo.corpus.defects import generate_defect_pcaps
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFECTS = ROOT / "madrigal" / "demo" / "corpus" / "defects"
+DEFECTS = ROOT / "netslider" / "demo" / "corpus" / "defects"
 
 
 def _pkt(
@@ -112,6 +112,8 @@ def test_overlap_conflict_ambiguous() -> None:
     # first_seen keeps original AAAA bytes; new tail YY is appended
     assert stream.materialize() == b"AAAAYY"
     assert any("AMBIGUOUS" in d for d in stream.defects)
+    assert stream.bytes_ambiguous > 0
+    assert any(s.status == SpanStatus.AMBIGUOUS for s in stream.spans)
 
 
 def test_provenance_packet_roundtrip() -> None:
@@ -153,19 +155,44 @@ def test_defect_pcap_overlap(tmp_path: Path) -> None:
     stream = streams.b_to_a
     assert stream.materialize() == b"AAAAYY"
     assert any("AMBIGUOUS" in d for d in stream.defects)
+    assert stream.bytes_ambiguous > 0
+    assert any(s.status == SpanStatus.AMBIGUOUS for s in stream.spans)
 
 
-def test_checked_in_defect_pcaps_if_present() -> None:
-    """When corpus defects/ is checked in, files must match unit expectations."""
-    if not DEFECTS.is_dir():
-        return
+def test_defect_pcap_reorder(tmp_path: Path) -> None:
+    paths = generate_defect_pcaps(tmp_path / "defects")
+    streams = _client_stream_from_pcap(paths["reorder"])
+    stream = streams.b_to_a
+    assert stream.materialize() == b"ABCDEFGH"
+    assert stream.bytes_unknown == 0
+    assert any("out-of-order" in d for d in stream.defects)
+
+
+def test_reorder_unit() -> None:
+    """Higher SEQ first, then lower — contiguous after drain."""
+    sess = _session()
+    pkts = [
+        _pkt(1, 1000, b"", flags=0x02),  # SYN → expected data seq 1001
+        _pkt(2, 1005, b"EFGH"),
+        _pkt(3, 1001, b"ABCD"),
+    ]
+    result = reassemble_session(sess, pkts, capture_id="cap")
+    stream = result.b_to_a
+    assert stream.materialize() == b"ABCDEFGH"
+    assert stream.bytes_unknown == 0
+    assert any(s.status == SpanStatus.OK for s in stream.spans)
+
+
+def test_checked_in_defect_pcaps() -> None:
+    """Checked-in corpus defects/ must exist and match unit expectations."""
+    assert DEFECTS.is_dir(), f"missing defects dir: {DEFECTS}"
     for name, check in (
         ("gap.pcap", lambda s: s.bytes_unknown == 6),
         ("retransmit.pcap", lambda s: s.materialize() == b"ABCDEF"),
         ("overlap.pcap", lambda s: s.materialize() == b"AAAAYY"),
+        ("reorder.pcap", lambda s: s.materialize() == b"ABCDEFGH" and s.bytes_unknown == 0),
     ):
         path = DEFECTS / name
-        if not path.is_file():
-            continue
+        assert path.is_file(), f"missing defect capture: {path}"
         streams = _client_stream_from_pcap(path)
         assert check(streams.b_to_a), name

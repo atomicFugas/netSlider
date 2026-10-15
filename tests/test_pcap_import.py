@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from madrigal.core.pcap import import_capture
-from madrigal.core.tcp import build_session_index, packets_for_session, reassemble_session
+from netslider.core.pcap import import_capture
+from netslider.core.tcp import build_session_index, packets_for_session, reassemble_session
 
-CORPUS = Path(__file__).resolve().parents[1] / "madrigal" / "demo" / "corpus" / "main.pcap"
+CORPUS = Path(__file__).resolve().parents[1] / "netslider" / "demo" / "corpus" / "main.pcap"
 
 
 def test_import_main_corpus() -> None:

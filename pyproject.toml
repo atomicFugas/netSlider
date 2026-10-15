@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "madrigal"
+name = "netslider"
 version = "0.2.0"
-description = "Madrigal Protocol Laboratory — research lab for undocumented TCP binary protocols"
+description = "netSlider Protocol Laboratory — research lab for undocumented TCP binary protocols"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -18,18 +18,19 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+build = ["pyinstaller>=6.0"]
 
 [project.scripts]
-madrigal = "madrigal.app.main:main"
-madrigal-cli = "madrigal.cli.main:cli"
-madrigal-demo-corpus = "madrigal.demo.corpus.generate:main"
+netslider = "netslider.app.main:main"
+netslider-cli = "netslider.cli.main:cli"
+netslider-demo-corpus = "netslider.demo.corpus.generate:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["madrigal*"]
+include = ["netslider*"]
 
 [tool.setuptools.package-data]
-madrigal = [
+netslider = [
   "demo/corpus/*.pcap",
   "demo/corpus/*.json",
   "demo/corpus/defects/*.pcap",

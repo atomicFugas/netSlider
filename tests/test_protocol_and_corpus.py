@@ -5,8 +5,8 @@ from __future__ import annotations
 import struct
 from pathlib import Path
 
-from madrigal.demo import protocol as proto
-from madrigal.demo.corpus.generate import generate_corpus
+from netslider.demo import protocol as proto
+from netslider.demo.corpus.generate import generate_corpus
 
 
 def test_frame_roundtrip() -> None:

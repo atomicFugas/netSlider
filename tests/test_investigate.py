@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from madrigal.core.investigate import (
+from netslider.core.investigate import (
     align_actions,
     delimiter_histogram,
     diff_ranges,
@@ -14,11 +14,11 @@ from madrigal.core.investigate import (
     probe_grid,
     probe_length_prefix,
 )
-from madrigal.core.pcap import import_capture
-from madrigal.core.tcp import build_session_index, packets_for_session, reassemble_session
+from netslider.core.pcap import import_capture
+from netslider.core.tcp import build_session_index, packets_for_session, reassemble_session
 
 ROOT = Path(__file__).resolve().parents[1]
-CORPUS = ROOT / "madrigal" / "demo" / "corpus"
+CORPUS = ROOT / "netslider" / "demo" / "corpus"
 
 
 def test_load_action_log_json() -> None:

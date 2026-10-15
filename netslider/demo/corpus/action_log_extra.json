@@ -1,0 +1,46 @@
+{
+  "format": "netslider.action_log.v1",
+  "device": "demo-device",
+  "events": [
+    {
+      "seq": 1,
+      "ts": "2026-10-15T22:13:33.857251+00:00",
+      "action": "set_param",
+      "params": {
+        "param_id": 1,
+        "value": 220
+      },
+      "result": {
+        "param_id": 1,
+        "value": 220
+      },
+      "note": ""
+    },
+    {
+      "seq": 2,
+      "ts": "2026-10-15T22:13:33.857351+00:00",
+      "action": "read_param",
+      "params": {
+        "param_id": 1
+      },
+      "result": {
+        "param_id": 1,
+        "value": 220
+      },
+      "note": ""
+    },
+    {
+      "seq": 3,
+      "ts": "2026-10-15T22:13:33.857451+00:00",
+      "action": "read_measurement",
+      "params": {
+        "sensor_id": 2
+      },
+      "result": {
+        "sensor_id": 2,
+        "nbytes": 144
+      },
+      "note": ""
+    }
+  ]
+}

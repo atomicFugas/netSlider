@@ -1,4 +1,4 @@
-# Madrigal — Architecture
+# netSlider — Architecture
 
 ## Layers
 
@@ -53,7 +53,7 @@ Both paths share `ApplyResult` and feed `validate_workspace` /
 ## Portable project (R5)
 
 ```
-project.madrigal.json   # relative paths only
+project.netslider.json   # relative paths only
 settings.json           # tcp + limits
 captures/
 action_logs/
@@ -74,11 +74,11 @@ wire `worker.cancel()`. Multi-capture validate checks cancel between files.
 ## Headless reuse (R6)
 
 ```
-madrigal apply --project ./lab --pcap extra.pcap
-madrigal validate device_v1.yaml main.pcap
-madrigal validate --project ./lab
-madrigal report --project ./lab --pcap main.pcap --out ./out
+netslider-cli apply --project ./lab --pcap extra.pcap
+netslider-cli validate device_v1.yaml main.pcap
+netslider-cli validate --project ./lab
+netslider-cli report --project ./lab --pcap main.pcap --out ./out
 ```
 
-Golden summaries live under `madrigal/demo/corpus/golden/`.
-Defect PCAPs live under `madrigal/demo/corpus/defects/`.
+Golden summaries live under `netslider/demo/corpus/golden/`.
+Defect PCAPs live under `netslider/demo/corpus/defects/`.
